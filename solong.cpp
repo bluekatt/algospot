@@ -1,17 +1,15 @@
 #include <bits/stdc++.h>
 
-#include <utility>
-
 using namespace std;
 
 const int ALPHABET = 26;
 
 struct TrieNode {
     TrieNode* children[ALPHABET];
-    int terminal;
-    int first;
+    int frequency;
+    TrieNode* recommendation;
 
-    TrieNode(): terminal(-1), first(-1) {
+    TrieNode(): frequency(-1), recommendation(NULL) {
         memset(children, 0, sizeof(children));
     }
 
@@ -21,14 +19,13 @@ struct TrieNode {
                 delete children[i];
     }
 
-    void insert(const char* key, int id) {
-        if(first==-1) first = id;
+    void insert(const char* key, const int freq) {
         if(*key==0) {
-            terminal = id;
+            frequency = freq;
         } else {
             int next = (*key) - 'A';
             if(children[next]==NULL) children[next] = new TrieNode();
-            children[next]->insert(key+1, id);
+            children[next]->insert(key+1, freq);
         }
     }
 
@@ -39,21 +36,23 @@ struct TrieNode {
         return children[next]->find(key+1);
     }
 
-    int recommend(const char* key, int id) {
-        if(*key==0) return 0;
-        if(first==id) return 1;
-        int next = (*key) - 'A';
-        return 1 + children[next]->recommend(key+1, id);
+    TrieNode* recommend() {
+        if(recommendation!=NULL) return recommendation;
+        TrieNode* ret = NULL;
+        if(frequency!=-1) ret = this;
+        for(int i=0;i<ALPHABET;i++) {
+            if(children[i]) {
+                TrieNode* recommended = children[i]->recommend();
+                if(recommended == NULL) continue;
+                if(ret==NULL) ret = recommended;
+                if(recommended->frequency > ret->frequency) {
+                    ret = recommended;
+                }
+            }
+        }
+        return (recommendation = ret);
     }
 };
-
-int countKeys(TrieNode* node, const char* key) {
-    TrieNode* tar = node->find(key);
-
-    if(tar==NULL || tar->terminal==-1) return strlen(key);
-
-    return node->recommend(key, tar->terminal);
-}
 
 int main() {
     cin.tie(NULL);
@@ -64,25 +63,36 @@ int main() {
         TrieNode* root = new TrieNode();
         int n, m;
         cin >> n >> m;
-        vector<pair<int, string> > inputs;
         for(int i=0;i<n;i++) {
             string word;
             int freq;
             cin >> word >> freq;
-            inputs.push_back(make_pair(-freq, word));
+            root->insert(word.c_str(), freq);
         }
-        sort(inputs.begin(), inputs.end());
-        for(int i=0;i<n;i++) {
-            root->insert(inputs[i].second.c_str(), i);
-        }
-        root->first = -1;
-        int typed = 0;
+        string input[20000];
         for(int i=0;i<m;i++) {
-            string input;
-            cin >> input;
-            typed += countKeys(root, input.c_str());
+            cin >> input[i];
         }
-        typed += m-1;
+        int typed = m-1;
+        for(int i=0;i<m;i++) {
+            TrieNode* tar = root->find(input[i].c_str());
+            int size = input[i].size();
+            char str[12];
+            bool succeed = false;
+            for(int j=0;j<size-1;j++) {
+                typed++;
+                str[j] = input[i].at(j); str[j+1] = 0;
+                TrieNode* found = root->find(str);
+                if(found==NULL) continue;
+                TrieNode* rec = found->recommend();
+                if(rec == tar) {
+                    succeed = true;
+                    typed++;
+                    break;
+                }
+            }
+            if(!succeed) typed++;
+        }
         cout << typed << "\n";
     }
 }
